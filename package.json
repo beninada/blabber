@@ -281,6 +281,7 @@
     "electron-log": "^4.0.6",
     "electron-updater": "^4.2.0",
     "history": "^4.10.1",
+    "postcss-cli": "^7.1.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "react-hot-loader": "^4.12.19",
@@ -289,7 +290,9 @@
     "react-router-dom": "^5.1.2",
     "redux": "^4.0.5",
     "redux-thunk": "^2.3.0",
-    "source-map-support": "^0.5.16"
+    "source-map-support": "^0.5.16",
+    "tailwindcss": "^1.4.6",
+    "ws": "^7.3.0"
   },
   "devEngines": {
     "node": ">=7.x",
@@ -305,7 +308,12 @@
   "prettier": {
     "overrides": [
       {
-        "files": [".prettierrc", ".babelrc", ".eslintrc", ".stylelintrc"],
+        "files": [
+          ".prettierrc",
+          ".babelrc",
+          ".eslintrc",
+          ".stylelintrc"
+        ],
         "options": {
           "parser": "json"
         }
@@ -314,10 +322,15 @@
     "singleQuote": true
   },
   "stylelint": {
-    "extends": ["stylelint-config-standard", "stylelint-config-prettier"]
+    "extends": [
+      "stylelint-config-standard",
+      "stylelint-config-prettier"
+    ]
   },
   "renovate": {
-    "extends": ["bliss"]
+    "extends": [
+      "bliss"
+    ]
   },
   "husky": {
     "hooks": {

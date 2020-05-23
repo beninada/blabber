@@ -1,14 +1,97 @@
 .container {
-  position: absolute;
-  top: 30%;
-  left: 10px;
-  text-align: center;
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  height: 100vh;
 }
 
-.container h2 {
-  font-size: 5rem;
+.sidebar {
+  border-right: 1px solid #555;
+  background: #212121;
 }
 
-.container a {
-  font-size: 1.4rem;
+.header {
+  height: 30px;
+  background: #5c6bc0;
+  display: flex;
+  align-items: center;
+  padding: 10px;
+}
+
+.requestList {
+  list-style-type: none;
+  margin-block-start: 0;
+  margin-block-end: 1em;
+  padding-inline-start: 0;
+  margin: 0;
+  padding: 10px 0;
+  font-size: 0.9rem;
+}
+
+.requestListItem {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 15px;
+  cursor: pointer;
+}
+
+.requestListItemActive {
+  background: #424242;
+}
+
+.requestBar {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  background: #6d6d6d;
+  font-size: 0.9rem;
+  padding: 10px;
+}
+
+.sendButton {
+  background: none;
+  color: white;
+  border: 0;
+  outline: none;
+  font-size: 0.9rem;
+  float: right;
+}
+
+.protocol {
+  font-weight: bold;
+}
+
+.host {
+  outline: none;
+  background: inherit;
+  border: 0;
+  color: #fff;
+  font-size: inherit;
+  margin-left: 10px;
+  margin-bottom: 2px;
+  width: 100%;
+}
+
+::placeholder {
+  color: #bbb;
+}
+
+.messageBar {
+  height: 15px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  background: #7e7e7e;
+}
+
+.message {
+  outline: none;
+  background: inherit;
+  border: 0;
+  color: #fff;
+  font-size: inherit;
+  margin-left: 5px;
+}
+
+.response {
+  padding: 20px;
 }
