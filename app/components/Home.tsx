@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import styles from './Home.css';
 
 export default function Home() {
-  const [host, setHost] = useState('echo.websocket.org');
+  const [host, setHost] = useState('');
   const [message, setMessage] = useState('');
   const [response, setResponse] = useState(null);
-  // const [activeRequest, setActiveRequest] = useState(null);
+  const [activeRequest, setActiveRequest] = useState(null);
 
   function sendRequest() {
     const ws = new WebSocket('wss://echo.websocket.org');
@@ -27,11 +27,13 @@ export default function Home() {
     setMessage(event.target.value);
   }
 
-  // function handleRequestListItemClick(event) {
-  //   event.preventDefault();
-  //   setActiveRequest(event.target.href);
-  //   setHost(event.target.href);
-  // }
+  function handleRequestListItemClick(event) {
+    event.preventDefault();
+    setActiveRequest(event.target.value);
+    setHost(event.target.value);
+    setMessage('');
+    setResponse(null);
+  }
 
   return (
     <div>
@@ -40,11 +42,35 @@ export default function Home() {
           <div className={styles.header}>Blabber</div>
           <ul className={styles.requestList}>
             <li
-              className={`${styles.requestListItem} ${styles.requestListItemActive}`}
+              className={`${styles.requestListItem} ${
+                activeRequest === 'echo.websocket.org'
+                  ? styles.requestListItemActive
+                  : ''
+              }`}
             >
-              echo.websocket.org
+              <button
+                type="button"
+                onClick={handleRequestListItemClick}
+                value="echo.websocket.org"
+              >
+                echo.websocket.org
+              </button>
             </li>
-            <li className={styles.requestListItem}>demos.kaazing.com/echo</li>
+            <li
+              className={`${styles.requestListItem} ${
+                activeRequest === 'demos.kaazing.com/echo'
+                  ? styles.requestListItemActive
+                  : ''
+              }`}
+            >
+              <button
+                type="button"
+                onClick={handleRequestListItemClick}
+                value="demos.kaazing.com/echo"
+              >
+                demos.kaazing.com/echo
+              </button>
+            </li>
           </ul>
         </div>
         <div>
@@ -53,7 +79,7 @@ export default function Home() {
             <input
               className={styles.host}
               type="text"
-              placeholder="echo.websocket.org"
+              placeholder="test.sockets.com"
               value={host}
               onChange={handleHostChange}
             />
