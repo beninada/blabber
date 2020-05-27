@@ -1,6 +1,6 @@
 {
-  "name": "electron-react-boilerplate",
-  "productName": "ElectronReact",
+  "name": "blabber",
+  "productName": "Blabber",
   "version": "1.1.0",
   "description": "Electron application boilerplate based on React, React Router, Webpack, React Hot Loader for rapid application development",
   "scripts": {
@@ -52,8 +52,8 @@
     ]
   },
   "build": {
-    "productName": "ElectronReact",
-    "appId": "org.develar.ElectronReact",
+    "productName": "Blabber",
+    "appId": "io.blabber.desktop",
     "files": [
       "dist/",
       "node_modules/",
@@ -106,23 +106,18 @@
     "url": "git+https://github.com/electron-react-boilerplate/electron-react-boilerplate.git"
   },
   "author": {
-    "name": "Electron React Boilerplate Maintainers",
-    "email": "electronreactboilerplate@gmail.com",
-    "url": "https://electron-react-boilerplate.js.org"
+    "name": "Blabber",
+    "email": "eng@blabber.io",
+    "url": "https://blabber.io"
   },
   "contributors": [
     {
-      "name": "Vikram Rangaraj",
-      "email": "vikr01@icloud.com",
-      "url": "https://github.com/vikr01"
-    },
-    {
-      "name": "Amila Welihinda",
-      "email": "amilajack@gmail.com",
-      "url": "https://github.com/amilajack"
+      "name": "Ben Inada",
+      "email": "me@beninada.com",
+      "url": "https://github.com/beninada"
     }
   ],
-  "license": "MIT",
+  "license": "UNLICENSED",
   "bugs": {
     "url": "https://github.com/electron-react-boilerplate/electron-react-boilerplate/issues"
   },
@@ -291,9 +286,7 @@
     "redux": "^4.0.5",
     "redux-thunk": "^2.3.0",
     "source-map-support": "^0.5.16",
-    "tailwindcss": "^1.4.6",
-    "uuid": "^8.1.0",
-    "ws": "^7.3.0"
+    "uuid": "^8.1.0"
   },
   "devEngines": {
     "node": ">=7.x",

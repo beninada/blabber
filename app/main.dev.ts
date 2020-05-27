@@ -8,11 +8,12 @@
  * When running `yarn build` or `yarn build-main`, this file is compiled to
  * `./app/main.prod.js` using webpack. This gives us some performance wins.
  */
-import path from 'path';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
+
+const zmq = require('zeromq');
 
 export default class AppUpdater {
   constructor() {
@@ -58,14 +59,17 @@ const createWindow = async () => {
     show: false,
     width: 1024,
     height: 728,
-    webPreferences:
-      process.env.NODE_ENV === 'development' || process.env.E2E_BUILD === 'true'
-        ? {
-            nodeIntegration: true
-          }
-        : {
-            preload: path.join(__dirname, 'dist/renderer.prod.js')
-          }
+    webPreferences: {
+      nodeIntegration: true
+    }
+    // webPreferences:
+    //   process.env.NODE_ENV === 'development' || process.env.E2E_BUILD === 'true'
+    //     ? {
+    //         nodeIntegration: true
+    //       }
+    //     : {
+    //         preload: path.join(__dirname, 'dist/renderer.prod.js')
+    //       }
   });
 
   mainWindow.loadURL(`file://${__dirname}/app.html`);
@@ -114,4 +118,16 @@ app.on('activate', () => {
   // On macOS it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (mainWindow === null) createWindow();
+});
+
+ipcMain.on('request-mainprocess-action', async (event, arg) => {
+  const sock = new zmq.Request();
+
+  sock.connect(arg.url);
+
+  await sock.send(arg.message);
+  const [result] = await sock.receive();
+
+  console.log(result);
+  event.sender.send('mainprocess-response', result);
 });
