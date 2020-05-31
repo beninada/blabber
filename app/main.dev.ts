@@ -128,6 +128,11 @@ ipcMain.on('request-mainprocess-action', async (event, arg) => {
   await sock.send(arg.message);
   const [result] = await sock.receive();
 
-  console.log(result);
-  event.sender.send('mainprocess-response', result);
+  console.log('Sending message', result);
+
+  try {
+    event.sender.send('mainprocess-response', result);
+  } catch (e) {
+    console.error(e);
+  }
 });

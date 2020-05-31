@@ -34,6 +34,9 @@ interface Request {
   protocol: string;
   url: string;
   message: string;
+  encoding: string;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 interface TabPanelProps {
@@ -96,6 +99,12 @@ export default function Home() {
       },
       encodingCheckboxLabel: {
         fontSize: '.9rem'
+      },
+      response: {
+        padding: '20px',
+        background: '#1b1b1b',
+        wordWrap: 'break-word',
+        wordBreak: 'break-all'
       }
     })
   );
@@ -112,14 +121,20 @@ export default function Home() {
           name: 'Websocket Example',
           protocol: 'wss',
           url: 'echo.websocket.org',
-          message: 'Test 123'
+          message: 'Test 123',
+          encoding: 'utf8',
+          created_at: new Date(),
+          updated_at: new Date()
         },
         {
           uuid: 'fewafewa01-33f32q-fefe32',
           name: 'ZeroMQ Example',
           protocol: 'tcp',
           url: '127.0.0.1:3000',
-          message: 'Echo'
+          message: 'Echo',
+          encoding: 'utf8',
+          created_at: new Date(),
+          updated_at: new Date()
         }
       ];
       localStorage.setItem('requests', JSON.stringify(data));
@@ -135,17 +150,27 @@ export default function Home() {
     }
 
     let requestsCopy = [...requests];
+    let activeRequestCopy = { ...activeRequest };
 
     // If this is a new request, it does not have a uuid, so we need to
     // generate one for it. Otherwise, we remove the old request and
     // replace it with the new one.
-    if (!activeRequest.uuid) {
-      activeRequest.uuid = uuidv4();
+    if (!activeRequestCopy.uuid) {
+      activeRequestCopy = {
+        ...activeRequestCopy,
+        uuid: uuidv4(),
+        created_at: new Date()
+      };
     } else {
-      requestsCopy = requestsCopy.filter(r => r.uuid !== activeRequest.uuid);
+      requestsCopy = requestsCopy.filter(
+        r => r.uuid !== activeRequestCopy.uuid
+      );
     }
 
-    requestsCopy.push(activeRequest);
+    // Update the updated timestamp
+    activeRequestCopy.updated_at = new Date();
+
+    requestsCopy.push(activeRequestCopy);
 
     // Update state and local storage
     setRequests(requestsCopy);
@@ -157,6 +182,14 @@ export default function Home() {
       return;
     }
 
+    let { message } = activeRequest;
+
+    // If the encoding checkbox is checked, create a buffer from the
+    // (assumed) provided base64 string
+    if (isEncodingChecked) {
+      message = Buffer.from(message, 'base64');
+    }
+
     if (activeRequest.protocol === 'tcp') {
       // Add the event listener for the response from the main process
       ipcRenderer.on('mainprocess-response', (event, arg) => {
@@ -164,21 +197,39 @@ export default function Home() {
       });
 
       // Send information to the main process
-      ipcRenderer.send('request-mainprocess-action', {
-        url: `${activeRequest.protocol}://${activeRequest.url}`,
-        message: activeRequest.message
-      });
+      try {
+        ipcRenderer.send('request-mainprocess-action', {
+          url: `${activeRequest.protocol}://${activeRequest.url}`,
+          message
+        });
+      } catch (e) {
+        console.error(e);
+      }
     } else {
       const ws = new WebSocket(
         `${activeRequest.protocol}://${activeRequest.url}`
       );
 
       ws.onopen = () => {
-        ws.send(activeRequest.message);
+        try {
+          ws.send(message);
+        } catch (e) {
+          console.error(e);
+        }
       };
 
-      ws.onmessage = event => {
-        setResponse(event.data);
+      ws.onmessage = async event => {
+        const { data } = event;
+
+        try {
+          if (data instanceof Blob) {
+            setResponse(await data.text());
+          } else {
+            setResponse(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
       };
     }
   }
@@ -258,9 +309,12 @@ export default function Home() {
     setActiveRequest({
       uuid: '',
       name: '',
+      protocol: 'wss',
       url: '',
       message: '',
-      protocol: 'wss'
+      encoding: 'utf8',
+      created_at: null,
+      updated_at: null
     });
   }
 
@@ -274,7 +328,14 @@ export default function Home() {
   function handleEncodingCheckboxChange(
     event: React.ChangeEvent<HTMLInputElement>
   ) {
+    if (!activeRequest) {
+      return;
+    }
     setIsEncodingChecked(event.target.checked);
+    setActiveRequest({
+      ...activeRequest,
+      encoding: event.target.checked ? 'base64' : 'utf8'
+    });
   }
 
   return (
@@ -391,12 +452,12 @@ export default function Home() {
                 showGutter={false}
                 tabSize={2}
                 height="100%"
-                width="100%"
+                width="unset"
                 showPrintMargin={false}
               />
             </TabPanel>
             <TabPanel value={tabValue} index={1}>
-              Test code
+              Coming soon
             </TabPanel>
             {tabValue === 0 && (
               <div>
@@ -411,7 +472,7 @@ export default function Home() {
               </div>
             )}
           </div>
-          <div className={styles.response}>{response}</div>
+          <div className={classes.response}>{response}</div>
         </div>
       </div>
     </ThemeProvider>
