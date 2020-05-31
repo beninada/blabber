@@ -18,8 +18,14 @@ import DialogTitle from '@material-ui/core/DialogTitle';
 import FormControl from '@material-ui/core/FormControl';
 import Select from '@material-ui/core/Select';
 import MenuItem from '@material-ui/core/MenuItem';
+import Tabs from '@material-ui/core/Tabs';
+import Tab from '@material-ui/core/Tab';
+import Checkbox from '@material-ui/core/Checkbox';
 import Input from '@material-ui/core/Input';
 import { v4 as uuidv4 } from 'uuid';
+import AceEditor from 'react-ace';
+import 'ace-builds/src-noconflict/mode-plain_text';
+import 'ace-builds/src-noconflict/theme-monokai';
 import styles from './Home.css';
 
 interface Request {
@@ -30,23 +36,34 @@ interface Request {
   message: string;
 }
 
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: any;
+  value: any;
+}
+
 const theme = createMuiTheme({
   palette: {
     type: 'dark'
   }
 });
 
-const useStyles = makeStyles(() =>
-  createStyles({
-    formControl: {
-      margin: theme.spacing(1),
-      minWidth: 100
-    },
-    requestBarButton: {
-      color: '#fff'
-    }
-  })
-);
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      // eslint-disable-next-line react/jsx-props-no-spreading
+      {...other}
+    >
+      {value === index && children}
+    </div>
+  );
+}
 
 export default function Home() {
   const [response, setResponse] = useState('');
@@ -55,6 +72,34 @@ export default function Home() {
   );
   const [requests, setRequests] = useState<Request[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
+  const [isEncodingChecked, setIsEncodingChecked] = useState(false);
+
+  const useStyles = makeStyles(() =>
+    createStyles({
+      container: {
+        display: 'grid',
+        gridTemplateColumns: response ? '200px 7fr 3fr' : '200px 7fr',
+        gridTemplateRows: '1fr 0',
+        height: '100vh'
+      },
+      main: {
+        display: 'grid',
+        gridTemplateRows: '60px 50px 4fr auto'
+      },
+      formControl: {
+        margin: theme.spacing(1),
+        minWidth: 100
+      },
+      requestBarButton: {
+        color: '#fff'
+      },
+      encodingCheckboxLabel: {
+        fontSize: '.9rem'
+      }
+    })
+  );
+
   const classes = useStyles();
 
   useEffect(() => {
@@ -171,13 +216,13 @@ export default function Home() {
     });
   }
 
-  function handleMessageChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleMessageChange(message) {
     if (!activeRequest) {
       return;
     }
     setActiveRequest({
       ...activeRequest,
-      message: event.target.value
+      message
     });
   }
 
@@ -219,11 +264,24 @@ export default function Home() {
     });
   }
 
+  function handleTabValueChange(
+    event: React.ChangeEvent<{}>,
+    newValue: number
+  ) {
+    setTabValue(newValue);
+  }
+
+  function handleEncodingCheckboxChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    setIsEncodingChecked(event.target.checked);
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <div>
-        <div className={styles.container} data-tid="container">
+        <div className={classes.container} data-tid="container">
           <div className={styles.sidebar}>
             <div className={styles.header}>Blabber</div>
             <ul className={styles.requestList}>
@@ -252,7 +310,7 @@ export default function Home() {
               </li>
             </ul>
           </div>
-          <div>
+          <div className={classes.main}>
             <div className={styles.requestBar}>
               {/* <span className={styles.protocol}>wss://</span> */}
               <FormControl
@@ -320,18 +378,40 @@ export default function Home() {
                 </DialogActions>
               </Dialog>
             </div>
-            <div className={styles.messageBar}>
-              Message:
-              <input
-                className={styles.message}
-                type="text"
-                placeholder="A check one, two"
-                value={activeRequest ? activeRequest.message : ''}
+            <Tabs value={tabValue} onChange={handleTabValueChange}>
+              <Tab label="Message" />
+              <Tab label="Test" />
+            </Tabs>
+            <TabPanel value={tabValue} index={0}>
+              <AceEditor
+                mode="plain_text"
+                theme="monokai"
                 onChange={handleMessageChange}
+                value={activeRequest ? activeRequest.message : ''}
+                showGutter={false}
+                tabSize={2}
+                height="100%"
+                width="100%"
+                showPrintMargin={false}
               />
-            </div>
-            <div className={styles.response}>{response}</div>
+            </TabPanel>
+            <TabPanel value={tabValue} index={1}>
+              Test code
+            </TabPanel>
+            {tabValue === 0 && (
+              <div>
+                <Checkbox
+                  checked={isEncodingChecked}
+                  onChange={handleEncodingCheckboxChange}
+                  size="small"
+                  name="checkedEncoding"
+                  color="primary"
+                />
+                <span>base64</span>
+              </div>
+            )}
           </div>
+          <div className={styles.response}>{response}</div>
         </div>
       </div>
     </ThemeProvider>
