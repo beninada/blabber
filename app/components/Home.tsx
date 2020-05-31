@@ -25,6 +25,7 @@ import Input from '@material-ui/core/Input';
 import { v4 as uuidv4 } from 'uuid';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-plain_text';
+import 'ace-builds/src-noconflict/mode-javascript';
 import 'ace-builds/src-noconflict/theme-monokai';
 import styles from './Home.css';
 
@@ -35,6 +36,7 @@ interface Request {
   url: string;
   message: string;
   encoding: string;
+  test: string;
   created_at: Date | null;
   updated_at: Date | null;
 }
@@ -123,6 +125,7 @@ export default function Home() {
           url: 'echo.websocket.org',
           message: 'Test 123',
           encoding: 'utf8',
+          test: '',
           created_at: new Date(),
           updated_at: new Date()
         },
@@ -133,6 +136,7 @@ export default function Home() {
           url: '127.0.0.1:3000',
           message: 'Echo',
           encoding: 'utf8',
+          test: '',
           created_at: new Date(),
           updated_at: new Date()
         }
@@ -192,13 +196,13 @@ export default function Home() {
 
     if (activeRequest.protocol === 'tcp') {
       // Add the event listener for the response from the main process
-      ipcRenderer.on('mainprocess-response', (event, arg) => {
+      ipcRenderer.on('zmq-response', (event, arg) => {
         setResponse(new TextDecoder('utf-8').decode(arg));
       });
 
       // Send information to the main process
       try {
-        ipcRenderer.send('request-mainprocess-action', {
+        ipcRenderer.send('zmq-request', {
           url: `${activeRequest.protocol}://${activeRequest.url}`,
           message
         });
@@ -221,6 +225,17 @@ export default function Home() {
       ws.onmessage = async event => {
         const { data } = event;
 
+        ipcRenderer.on('js-result', (e, arg) => {
+          console.log('Received js result', arg);
+        });
+
+        // Wrap test in an anonymous function so user can return a result
+        const code = `(() => {
+          ${activeRequest.test}
+        })()`;
+
+        ipcRenderer.send('execute-js', { code });
+
         try {
           if (data instanceof Blob) {
             setResponse(await data.text());
@@ -233,6 +248,8 @@ export default function Home() {
       };
     }
   }
+
+  function runTest() {}
 
   function handleRequestBarClickSave() {
     if (!activeRequest) {
@@ -313,6 +330,7 @@ export default function Home() {
       url: '',
       message: '',
       encoding: 'utf8',
+      test: '',
       created_at: null,
       updated_at: null
     });
@@ -335,6 +353,16 @@ export default function Home() {
     setActiveRequest({
       ...activeRequest,
       encoding: event.target.checked ? 'base64' : 'utf8'
+    });
+  }
+
+  function handleTestChange(test) {
+    if (!activeRequest) {
+      return;
+    }
+    setActiveRequest({
+      ...activeRequest,
+      test
     });
   }
 
@@ -457,7 +485,17 @@ export default function Home() {
               />
             </TabPanel>
             <TabPanel value={tabValue} index={1}>
-              Coming soon
+              <AceEditor
+                mode="javascript"
+                theme="monokai"
+                onChange={handleTestChange}
+                value={activeRequest ? activeRequest.test : ''}
+                showGutter={false}
+                tabSize={2}
+                height="100%"
+                width="unset"
+                showPrintMargin={false}
+              />
             </TabPanel>
             {tabValue === 0 && (
               <div>

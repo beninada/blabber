@@ -11,9 +11,9 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
+import * as zmq from 'zeromq';
+import { VM } from 'vm2';
 import MenuBuilder from './menu';
-
-const zmq = require('zeromq');
 
 export default class AppUpdater {
   constructor() {
@@ -59,6 +59,9 @@ const createWindow = async () => {
     show: false,
     width: 1024,
     height: 728,
+    // HACK: We need to enable nodeIntegration due to an apparent problem/bug
+    // with Material UI
+    // https://github.com/electron-react-boilerplate/electron-react-boilerplate/issues/2395
     webPreferences: {
       nodeIntegration: true
     }
@@ -120,19 +123,34 @@ app.on('activate', () => {
   if (mainWindow === null) createWindow();
 });
 
-ipcMain.on('request-mainprocess-action', async (event, arg) => {
+ipcMain.on('zmq-request', async (event, arg) => {
   const sock = new zmq.Request();
 
-  sock.connect(arg.url);
-
-  await sock.send(arg.message);
-  const [result] = await sock.receive();
-
-  console.log('Sending message', result);
-
   try {
-    event.sender.send('mainprocess-response', result);
+    sock.connect(arg.url);
+
+    console.log('Main process sending message', arg.message);
+
+    await sock.send(arg.message);
+    const [result] = await sock.receive();
+
+    console.log('Main process received message', result);
+
+    event.sender.send('zmq-response', result);
   } catch (e) {
     console.error(e);
   }
+});
+
+ipcMain.on('execute-js', async (event, arg) => {
+  const vm = new VM();
+  let result;
+
+  try {
+    result = vm.run(arg.code);
+  } catch (e) {
+    console.error(e);
+  }
+
+  event.sender.send('js-result', result);
 });
