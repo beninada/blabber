@@ -181,6 +181,23 @@ export default function Home() {
     localStorage.setItem('requests', JSON.stringify(requestsCopy));
   }
 
+  function runTest(test: string) {
+    if (!test) {
+      return;
+    }
+
+    ipcRenderer.on('js-result', (e, arg) => {
+      console.log('Received js result', arg);
+    });
+
+    // Wrap test in an anonymous function so user can return a result
+    const code = `(() => {
+      ${test}
+    })()`;
+
+    ipcRenderer.send('execute-js', { code });
+  }
+
   function handleSendRequest() {
     if (!activeRequest) {
       return;
@@ -198,6 +215,7 @@ export default function Home() {
       // Add the event listener for the response from the main process
       ipcRenderer.on('zmq-response', (event, arg) => {
         setResponse(new TextDecoder('utf-8').decode(arg));
+        runTest(activeRequest.test);
       });
 
       // Send information to the main process
@@ -225,31 +243,19 @@ export default function Home() {
       ws.onmessage = async event => {
         const { data } = event;
 
-        ipcRenderer.on('js-result', (e, arg) => {
-          console.log('Received js result', arg);
-        });
-
-        // Wrap test in an anonymous function so user can return a result
-        const code = `(() => {
-          ${activeRequest.test}
-        })()`;
-
-        ipcRenderer.send('execute-js', { code });
-
         try {
           if (data instanceof Blob) {
             setResponse(await data.text());
           } else {
             setResponse(data);
           }
+          runTest(activeRequest.test);
         } catch (e) {
           console.error(e);
         }
       };
     }
   }
-
-  function runTest() {}
 
   function handleRequestBarClickSave() {
     if (!activeRequest) {

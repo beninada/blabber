@@ -142,6 +142,7 @@ ipcMain.on('zmq-request', async (event, arg) => {
   }
 });
 
+// Execute js using vm2, a secure sandbox
 ipcMain.on('execute-js', async (event, arg) => {
   const vm = new VM();
   let result;
