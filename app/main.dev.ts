@@ -144,14 +144,31 @@ ipcMain.on('zmq-request', async (event, arg) => {
 
 // Execute js using vm2, a secure sandbox
 ipcMain.on('execute-js', async (event, arg) => {
-  const vm = new VM();
-  let result;
+  // Create a sandboxed environment passing in the response so that the user
+  // can run tests against it
+  const vm = new VM({
+    sandbox: {
+      response: arg.response
+    }
+  });
+  let message;
+  let data;
 
   try {
-    result = vm.run(arg.code);
+    data = vm.run(arg.code);
+
+    // Success if value returned is truthy
+    message = {
+      isSuccess: !!data,
+      result: data
+    };
   } catch (e) {
+    message = {
+      isSuccess: false,
+      reason: e.message
+    };
     console.error(e);
   }
 
-  event.sender.send('js-result', result);
+  event.sender.send('js-result', message);
 });

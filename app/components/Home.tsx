@@ -22,6 +22,9 @@ import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import Checkbox from '@material-ui/core/Checkbox';
 import Input from '@material-ui/core/Input';
+import Typography from '@material-ui/core/Typography';
+import Box from '@material-ui/core/Box';
+import { Alert, AlertTitle } from '@material-ui/lab';
 import { v4 as uuidv4 } from 'uuid';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-plain_text';
@@ -39,6 +42,11 @@ interface Request {
   test: string;
   created_at: Date | null;
   updated_at: Date | null;
+}
+
+interface TestResult {
+  isSuccess: boolean;
+  reason: string;
 }
 
 interface TabPanelProps {
@@ -79,6 +87,9 @@ export default function Home() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [isEncodingChecked, setIsEncodingChecked] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | undefined>(
+    undefined
+  );
 
   const useStyles = makeStyles(() =>
     createStyles({
@@ -103,6 +114,8 @@ export default function Home() {
         fontSize: '.9rem'
       },
       response: {
+        display: 'grid',
+        gridTemplateRows: '1fr',
         padding: '20px',
         background: '#1b1b1b',
         wordWrap: 'break-word',
@@ -125,7 +138,7 @@ export default function Home() {
           url: 'echo.websocket.org',
           message: 'Test 123',
           encoding: 'utf8',
-          test: '',
+          test: "return response === 'Test 123';",
           created_at: new Date(),
           updated_at: new Date()
         },
@@ -136,7 +149,7 @@ export default function Home() {
           url: '127.0.0.1:3000',
           message: 'Echo',
           encoding: 'utf8',
-          test: '',
+          test: "return response === 'Echo';",
           created_at: new Date(),
           updated_at: new Date()
         }
@@ -181,13 +194,14 @@ export default function Home() {
     localStorage.setItem('requests', JSON.stringify(requestsCopy));
   }
 
-  function runTest(test: string) {
+  function runTest(test: string, responseData: any) {
     if (!test) {
       return;
     }
 
-    ipcRenderer.on('js-result', (e, arg) => {
-      console.log('Received js result', arg);
+    ipcRenderer.on('js-result', (e, message) => {
+      console.log('Received js result', message);
+      setTestResult(message);
     });
 
     // Wrap test in an anonymous function so user can return a result
@@ -195,13 +209,19 @@ export default function Home() {
       ${test}
     })()`;
 
-    ipcRenderer.send('execute-js', { code });
+    ipcRenderer.send('execute-js', {
+      code,
+      response: responseData
+    });
   }
 
   function handleSendRequest() {
     if (!activeRequest) {
       return;
     }
+
+    // Clear any previous test result
+    setTestResult(undefined);
 
     let { message } = activeRequest;
 
@@ -214,8 +234,9 @@ export default function Home() {
     if (activeRequest.protocol === 'tcp') {
       // Add the event listener for the response from the main process
       ipcRenderer.on('zmq-response', (event, arg) => {
-        setResponse(new TextDecoder('utf-8').decode(arg));
-        runTest(activeRequest.test);
+        const decoded = new TextDecoder('utf-8').decode(arg);
+        setResponse(decoded);
+        runTest(activeRequest.test, decoded);
       });
 
       // Send information to the main process
@@ -241,15 +262,14 @@ export default function Home() {
       };
 
       ws.onmessage = async event => {
-        const { data } = event;
+        let { data } = event;
 
         try {
           if (data instanceof Blob) {
-            setResponse(await data.text());
-          } else {
-            setResponse(data);
+            data = await data.text();
           }
-          runTest(activeRequest.test);
+          setResponse(data);
+          runTest(activeRequest.test, data);
         } catch (e) {
           console.error(e);
         }
@@ -464,16 +484,16 @@ export default function Home() {
                   />
                 </DialogContent>
                 <DialogActions>
-                  <Button onClick={handleCloseDialog} color="primary">
-                    Cancel
-                  </Button>
-                  <Button onClick={handleDialogClickSave} color="primary">
-                    Save
-                  </Button>
+                  <Button onClick={handleCloseDialog}>Cancel</Button>
+                  <Button onClick={handleDialogClickSave}>Save</Button>
                 </DialogActions>
               </Dialog>
             </div>
-            <Tabs value={tabValue} onChange={handleTabValueChange}>
+            <Tabs
+              value={tabValue}
+              onChange={handleTabValueChange}
+              indicatorColor="primary"
+            >
               <Tab label="Message" />
               <Tab label="Test" />
             </Tabs>
@@ -496,7 +516,6 @@ export default function Home() {
                 theme="monokai"
                 onChange={handleTestChange}
                 value={activeRequest ? activeRequest.test : ''}
-                showGutter={false}
                 tabSize={2}
                 height="100%"
                 width="unset"
@@ -516,7 +535,24 @@ export default function Home() {
               </div>
             )}
           </div>
-          <div className={classes.response}>{response}</div>
+          <div className={classes.response}>
+            <Box>
+              <Typography variant="h6">Response</Typography>
+              <Box my={1}>{response}</Box>
+            </Box>
+            {testResult?.isSuccess && (
+              <Alert severity="success">
+                <AlertTitle>Test Passed</AlertTitle>
+                {testResult?.reason}
+              </Alert>
+            )}
+            {testResult && !testResult.isSuccess && (
+              <Alert severity="error">
+                <AlertTitle>Test Failed</AlertTitle>
+                {testResult?.reason}
+              </Alert>
+            )}
+          </div>
         </div>
       </div>
     </ThemeProvider>
