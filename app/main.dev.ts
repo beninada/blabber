@@ -1,3 +1,4 @@
+/* eslint-disable no-param-reassign */
 /* eslint global-require: off, no-console: off */
 
 /**
@@ -136,7 +137,12 @@ ipcMain.on('zmq-request', async (event, arg) => {
 
     console.log('Main process received message', result);
 
-    event.sender.send('zmq-response', result);
+    // If request was encoded, send response back encoded
+    if (arg.encoding === 'base64') {
+      event.returnValue = result.toString('base64');
+    } else {
+      event.returnValue = result;
+    }
   } catch (e) {
     console.error(e);
   }
@@ -144,6 +150,8 @@ ipcMain.on('zmq-request', async (event, arg) => {
 
 // Execute js using vm2, a secure sandbox
 ipcMain.on('execute-js', async (event, arg) => {
+  console.log('Main process received execute js request');
+
   // Create a sandboxed environment passing in the response so that the user
   // can run tests against it
   const vm = new VM({
@@ -165,10 +173,12 @@ ipcMain.on('execute-js', async (event, arg) => {
   } catch (e) {
     message = {
       isSuccess: false,
+      result: data,
       reason: e.message
     };
     console.error(e);
   }
 
-  event.sender.send('js-result', message);
+  console.log('Main process sending result');
+  event.returnValue = message;
 });

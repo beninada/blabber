@@ -86,7 +86,6 @@ export default function Home() {
   const [requests, setRequests] = useState<Request[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
-  const [isEncodingChecked, setIsEncodingChecked] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | undefined>(
     undefined
   );
@@ -194,25 +193,22 @@ export default function Home() {
     localStorage.setItem('requests', JSON.stringify(requestsCopy));
   }
 
-  function runTest(test: string, responseData: any) {
-    if (!test) {
+  function runTest(responseData: any) {
+    if (!activeRequest) {
       return;
     }
 
-    ipcRenderer.on('js-result', (e, message) => {
-      console.log('Received js result', message);
-      setTestResult(message);
-    });
-
     // Wrap test in an anonymous function so user can return a result
     const code = `(() => {
-      ${test}
+      ${activeRequest.test}
     })()`;
 
-    ipcRenderer.send('execute-js', {
+    const result = ipcRenderer.sendSync('execute-js', {
       code,
       response: responseData
     });
+
+    setTestResult(result);
   }
 
   function handleSendRequest() {
@@ -227,24 +223,20 @@ export default function Home() {
 
     // If the encoding checkbox is checked, create a buffer from the
     // (assumed) provided base64 string
-    if (isEncodingChecked) {
+    if (activeRequest.encoding === 'base64') {
       message = Buffer.from(message, 'base64');
     }
 
     if (activeRequest.protocol === 'tcp') {
-      // Add the event listener for the response from the main process
-      ipcRenderer.on('zmq-response', (event, arg) => {
-        const decoded = new TextDecoder('utf-8').decode(arg);
-        setResponse(decoded);
-        runTest(activeRequest.test, decoded);
-      });
-
       // Send information to the main process
       try {
-        ipcRenderer.send('zmq-request', {
+        const zmqResponse = ipcRenderer.sendSync('zmq-request', {
           url: `${activeRequest.protocol}://${activeRequest.url}`,
-          message
+          message,
+          encoding: activeRequest.encoding
         });
+        setResponse(zmqResponse);
+        runTest(zmqResponse);
       } catch (e) {
         console.error(e);
       }
@@ -269,7 +261,7 @@ export default function Home() {
             data = await data.text();
           }
           setResponse(data);
-          runTest(activeRequest.test, data);
+          runTest(data);
         } catch (e) {
           console.error(e);
         }
@@ -375,7 +367,6 @@ export default function Home() {
     if (!activeRequest) {
       return;
     }
-    setIsEncodingChecked(event.target.checked);
     setActiveRequest({
       ...activeRequest,
       encoding: event.target.checked ? 'base64' : 'utf8'
@@ -525,7 +516,7 @@ export default function Home() {
             {tabValue === 0 && (
               <div>
                 <Checkbox
-                  checked={isEncodingChecked}
+                  checked={activeRequest?.encoding === 'base64'}
                   onChange={handleEncodingCheckboxChange}
                   size="small"
                   name="checkedEncoding"
