@@ -151,7 +151,7 @@ ipcMain.on('zmq-request', async (event, arg) => {
     if (arg.encoding === 'base64') {
       event.returnValue = result?.toString('base64');
     } else {
-      event.returnValue = result;
+      event.returnValue = result?.toString('utf8');
     }
   } catch (e) {
     console.error(e);
