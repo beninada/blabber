@@ -125,21 +125,31 @@ app.on('activate', () => {
 });
 
 ipcMain.on('zmq-request', async (event, arg) => {
-  const sock = new zmq.Request();
+  const sock = new zmq.Request({
+    connectTimeout: 5000,
+    sendTimeout: 10000,
+    receiveTimeout: 10000
+  });
 
   try {
     sock.connect(arg.url);
 
     console.log('Main process sending message', arg.message);
 
-    await sock.send(arg.message);
-    const [result] = await sock.receive();
+    let result;
+
+    try {
+      await sock.send(arg.message);
+      [result] = await sock.receive();
+    } catch (e) {
+      console.error('Send/receive error', e);
+    }
 
     console.log('Main process received message', result);
 
     // If request was encoded, send response back encoded
     if (arg.encoding === 'base64') {
-      event.returnValue = result.toString('base64');
+      event.returnValue = result?.toString('base64');
     } else {
       event.returnValue = result;
     }
@@ -155,6 +165,7 @@ ipcMain.on('execute-js', async (event, arg) => {
   // Create a sandboxed environment passing in the response so that the user
   // can run tests against it
   const vm = new VM({
+    timeout: 10000,
     sandbox: {
       response: arg.response
     }

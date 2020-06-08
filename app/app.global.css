@@ -41,3 +41,11 @@ a:hover {
   text-decoration: none;
   cursor: pointer;
 }
+
+.ace-monokai {
+  background-color: #212121;
+}
+
+.ace-monokai .ace_gutter {
+  background: #1b1b1b;
+}

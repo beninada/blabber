@@ -24,6 +24,19 @@ import Checkbox from '@material-ui/core/Checkbox';
 import Input from '@material-ui/core/Input';
 import Typography from '@material-ui/core/Typography';
 import Box from '@material-ui/core/Box';
+import IconButton from '@material-ui/core/IconButton';
+import CheckCircleOutlinedIcon from '@material-ui/icons/CheckCircleOutlined';
+import HighlightOffOutlinedIcon from '@material-ui/icons/HighlightOffOutlined';
+import Menu from '@material-ui/core/Menu';
+import MoreVertIcon from '@material-ui/icons/MoreVert';
+import Table from '@material-ui/core/Table';
+import TableBody from '@material-ui/core/TableBody';
+import TableCell from '@material-ui/core/TableCell';
+import TableContainer from '@material-ui/core/TableContainer';
+import TableHead from '@material-ui/core/TableHead';
+import TableRow from '@material-ui/core/TableRow';
+import green from '@material-ui/core/colors/green';
+import red from '@material-ui/core/colors/red';
 import { Alert, AlertTitle } from '@material-ui/lab';
 import { v4 as uuidv4 } from 'uuid';
 import AceEditor from 'react-ace';
@@ -45,17 +58,23 @@ interface Request {
 }
 
 interface TestResult {
+  requestUuid: string;
   isSuccess: boolean;
   reason: string;
 }
 
 interface TabPanelProps {
   children?: React.ReactNode;
-  index: any;
-  value: any;
+  index: number;
+  value: number;
 }
 
 const theme = createMuiTheme({
+  props: {
+    MuiButtonBase: {
+      disableRipple: true
+    }
+  },
   palette: {
     type: 'dark'
   }
@@ -68,8 +87,8 @@ function TabPanel(props: TabPanelProps) {
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
+      id={`tabpanel-${index}`}
+      aria-labelledby={`tab-${index}`}
       // eslint-disable-next-line react/jsx-props-no-spreading
       {...other}
     >
@@ -85,10 +104,13 @@ export default function Home() {
   );
   const [requests, setRequests] = useState<Request[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isTestResultsDialogOpen, setIsTestResultsDialogOpen] = useState(false);
   const [tabValue, setTabValue] = useState(0);
   const [testResult, setTestResult] = useState<TestResult | undefined>(
     undefined
   );
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   const useStyles = makeStyles(() =>
     createStyles({
@@ -119,6 +141,12 @@ export default function Home() {
         background: '#1b1b1b',
         wordWrap: 'break-word',
         wordBreak: 'break-all'
+      },
+      iconFailure: {
+        color: red[500]
+      },
+      iconSuccess: {
+        color: green[500]
       }
     })
   );
@@ -138,8 +166,8 @@ export default function Home() {
           message: 'Test 123',
           encoding: 'utf8',
           test: "return response === 'Test 123';",
-          created_at: new Date(),
-          updated_at: new Date()
+          created_at: new Date('2020-04-01T04:29:51.005Z'),
+          updated_at: new Date('2020-04-01T04:29:51.005Z')
         },
         {
           uuid: 'fewafewa01-33f32q-fefe32',
@@ -149,8 +177,8 @@ export default function Home() {
           message: 'Echo',
           encoding: 'utf8',
           test: "return response === 'Echo';",
-          created_at: new Date(),
-          updated_at: new Date()
+          created_at: new Date('2020-07-02T05:10:33.005Z'),
+          updated_at: new Date('2020-07-02T05:10:33.005Z')
         }
       ];
       localStorage.setItem('requests', JSON.stringify(data));
@@ -193,14 +221,14 @@ export default function Home() {
     localStorage.setItem('requests', JSON.stringify(requestsCopy));
   }
 
-  function runTest(responseData: any) {
-    if (!activeRequest) {
-      return;
+  function runTest(responseData: unknown, request: Request) {
+    if (!request) {
+      return null;
     }
 
     // Wrap test in an anonymous function so user can return a result
     const code = `(() => {
-      ${activeRequest.test}
+      ${request.test}
     })()`;
 
     const result = ipcRenderer.sendSync('execute-js', {
@@ -208,42 +236,46 @@ export default function Home() {
       response: responseData
     });
 
-    setTestResult(result);
+    setTestResult({
+      ...result,
+      requestUuid: request.uuid
+    });
+
+    return result;
   }
 
-  function handleSendRequest() {
-    if (!activeRequest) {
+  function sendRequest(request: Request) {
+    if (!request) {
       return;
     }
 
-    // Clear any previous test result
-    setTestResult(undefined);
-
-    let { message } = activeRequest;
+    let { message } = request;
 
     // If the encoding checkbox is checked, create a buffer from the
     // (assumed) provided base64 string
-    if (activeRequest.encoding === 'base64') {
+    if (request.encoding === 'base64') {
       message = Buffer.from(message, 'base64');
     }
 
-    if (activeRequest.protocol === 'tcp') {
+    if (request.protocol === 'tcp') {
       // Send information to the main process
       try {
         const zmqResponse = ipcRenderer.sendSync('zmq-request', {
-          url: `${activeRequest.protocol}://${activeRequest.url}`,
+          url: `${request.protocol}://${request.url}`,
           message,
-          encoding: activeRequest.encoding
+          encoding: request.encoding
         });
+
         setResponse(zmqResponse);
-        runTest(zmqResponse);
+
+        if (request.test) {
+          runTest(zmqResponse, request);
+        }
       } catch (e) {
         console.error(e);
       }
     } else {
-      const ws = new WebSocket(
-        `${activeRequest.protocol}://${activeRequest.url}`
-      );
+      const ws = new WebSocket(`${request.protocol}://${request.url}`);
 
       ws.onopen = () => {
         try {
@@ -260,13 +292,102 @@ export default function Home() {
           if (data instanceof Blob) {
             data = await data.text();
           }
+
           setResponse(data);
-          runTest(data);
+
+          if (request.test) {
+            runTest(data, request);
+          }
         } catch (e) {
           console.error(e);
         }
       };
     }
+  }
+
+  function handleRunAllTestsClick() {
+    setMenuAnchorEl(null);
+    setIsTestResultsDialogOpen(true);
+
+    // eslint-disable-next-line no-restricted-syntax
+    for (const request of requests) {
+      if (!request) {
+        return;
+      }
+
+      let { message } = request;
+
+      // If the encoding checkbox is checked, create a buffer from the
+      // (assumed) provided base64 string
+      if (request.encoding === 'base64') {
+        message = Buffer.from(message, 'base64');
+      }
+
+      if (request.protocol === 'tcp') {
+        // Send information to the main process
+        try {
+          const zmqResponse = ipcRenderer.sendSync('zmq-request', {
+            url: `${request.protocol}://${request.url}`,
+            message,
+            encoding: request.encoding
+          });
+
+          if (request.test) {
+            const result = runTest(zmqResponse, request);
+            const testResultsCopy = [...testResults];
+            testResultsCopy.push({
+              ...result,
+              requestUuid: request.uuid
+            });
+            setTestResults(testResultsCopy);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      } else {
+        const ws = new WebSocket(`${request.protocol}://${request.url}`);
+
+        ws.onopen = () => {
+          try {
+            ws.send(message);
+          } catch (e) {
+            console.error(e);
+          }
+        };
+
+        ws.onmessage = async event => {
+          let { data } = event;
+
+          try {
+            if (data instanceof Blob) {
+              data = await data.text();
+            }
+
+            if (request.test) {
+              const result = runTest(data, request);
+              setTestResults(prev => [
+                ...prev,
+                {
+                  ...result,
+                  requestUuid: request.uuid
+                }
+              ]);
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        };
+      }
+    }
+  }
+
+  function handleSendRequest() {
+    if (!activeRequest) {
+      return;
+    }
+
+    setTestResult(undefined);
+    sendRequest(activeRequest);
   }
 
   function handleRequestBarClickSave() {
@@ -383,13 +504,129 @@ export default function Home() {
     });
   }
 
+  function handleMenuOpenClick(event: React.MouseEvent<HTMLElement>) {
+    setMenuAnchorEl(event.currentTarget);
+  }
+
+  function handleMenuClose() {
+    setMenuAnchorEl(null);
+  }
+
+  function handleTestResultsDialogClose() {
+    setIsTestResultsDialogOpen(false);
+    setTestResults([]);
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <div>
         <div className={classes.container} data-tid="container">
           <div className={styles.sidebar}>
-            <div className={styles.header}>Blabber</div>
+            <div className={styles.header}>
+              <div>Blabber</div>
+              <div style={{ marginLeft: 'auto' }}>
+                <IconButton
+                  aria-label="more"
+                  aria-controls="long-menu"
+                  aria-haspopup="true"
+                  onClick={handleMenuOpenClick}
+                  size="small"
+                >
+                  <MoreVertIcon />
+                </IconButton>
+                <Menu
+                  id="long-menu"
+                  anchorEl={menuAnchorEl}
+                  keepMounted
+                  open={Boolean(menuAnchorEl)}
+                  onClose={handleMenuClose}
+                  PaperProps={{
+                    style: {
+                      maxHeight: '220px',
+                      width: '20ch'
+                    }
+                  }}
+                >
+                  <MenuItem
+                    key="Run all tests"
+                    onClick={handleRunAllTestsClick}
+                  >
+                    Run all tests
+                  </MenuItem>
+                </Menu>
+                <Dialog
+                  open={isTestResultsDialogOpen}
+                  onClose={handleTestResultsDialogClose}
+                  maxWidth="xl"
+                >
+                  <DialogTitle>Test Results</DialogTitle>
+                  <DialogContent>
+                    <DialogContentText>
+                      <TableContainer>
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Result</TableCell>
+                              <TableCell>Name</TableCell>
+                              <TableCell>URL</TableCell>
+                              <TableCell>Message</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {testResults.map(result => {
+                              const req = requests.filter(
+                                r => r.uuid === result.requestUuid
+                              )[0];
+
+                              return (
+                                <TableRow key={req.uuid}>
+                                  <TableCell component="th" scope="row">
+                                    {result.isSuccess ? (
+                                      <CheckCircleOutlinedIcon
+                                        className={classes.iconSuccess}
+                                      />
+                                    ) : (
+                                      <HighlightOffOutlinedIcon
+                                        className={classes.iconFailure}
+                                      />
+                                    )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography noWrap>{req.name}</Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography noWrap>{req.url}</Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Box
+                                      style={{
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        width: '20ch'
+                                      }}
+                                    >
+                                      <Typography noWrap>
+                                        {req.message}
+                                      </Typography>
+                                    </Box>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </DialogContentText>
+                  </DialogContent>
+                  <DialogActions>
+                    <Button onClick={handleTestResultsDialogClose}>
+                      Close
+                    </Button>
+                  </DialogActions>
+                </Dialog>
+              </div>
+            </div>
             <ul className={styles.requestList}>
               {requests.map(item => {
                 return (
@@ -418,7 +655,6 @@ export default function Home() {
           </div>
           <div className={classes.main}>
             <div className={styles.requestBar}>
-              {/* <span className={styles.protocol}>wss://</span> */}
               <FormControl
                 variant="outlined"
                 size="small"
